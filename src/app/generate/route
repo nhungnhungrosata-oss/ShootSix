@@ -1,0 +1,85 @@
+import { NextRequest, NextResponse } from "next/server";
+import { generateWithGemini } from "@/lib/gemini";
+import { generateWithOpenAI } from "@/lib/openai";
+import { SHOT_DEFINITIONS } from "@/lib/shotDefinitions";
+
+export const maxDuration = 60;
+
+export async function POST(req: NextRequest) {
+  try {
+    const formData = await req.formData();
+    const imageFile = formData.get("image") as File;
+    const shotId = parseInt(formData.get("shotId") as string);
+    const provider =
+      (formData.get("provider") as string) ||
+      process.env.AI_PROVIDER ||
+      "gemini";
+
+    if (!imageFile) {
+      return NextResponse.json({ error: "No image provided" }, { status: 400 });
+    }
+
+    if (!imageFile.type.startsWith("image/")) {
+      return NextResponse.json(
+        { error: "File must be an image" },
+        { status: 400 }
+      );
+    }
+
+    const maxSizeMB = parseInt(process.env.MAX_FILE_SIZE_MB || "10");
+    if (imageFile.size > maxSizeMB * 1024 * 1024) {
+      return NextResponse.json(
+        { error: `File size must be less than ${maxSizeMB}MB` },
+        { status: 400 }
+      );
+    }
+
+    const shot = SHOT_DEFINITIONS.find((s) => s.id === shotId);
+    if (!shot) {
+      return NextResponse.json({ error: "Invalid shot ID" }, { status: 400 });
+    }
+
+    const bytes = await imageFile.arrayBuffer();
+    const base64 = Buffer.from(bytes).toString("base64");
+    const mimeType = imageFile.type;
+
+    let resultImageBase64: string;
+
+    if (provider === "openai") {
+      resultImageBase64 = await generateWithOpenAI({
+        imageBase64: base64,
+        mimeType,
+        prompt: shot.openaiPrompt,
+      });
+    } else {
+      // Default: gemini, fallback to openai on error
+      try {
+        resultImageBase64 = await generateWithGemini({
+          imageBase64: base64,
+          mimeType,
+          prompt: shot.geminiPrompt,
+        });
+      } catch (geminiError) {
+        console.warn("Gemini failed, falling back to OpenAI:", geminiError);
+        resultImageBase64 = await generateWithOpenAI({
+          imageBase64: base64,
+          mimeType,
+          prompt: shot.openaiPrompt,
+        });
+      }
+    }
+
+    return NextResponse.json({
+      success: true,
+      shotId,
+      imageBase64: resultImageBase64,
+      format: "png",
+    });
+  } catch (error: any) {
+    console.error("Generation error:", error);
+    return NextResponse.json(
+      { error: error.message || "Generation failed" },
+      { status: 500 }
+    );
+  }
+}
