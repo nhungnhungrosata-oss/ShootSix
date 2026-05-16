@@ -1,0 +1,58 @@
+import type { Metadata, Viewport } from "next";
+import "./globals.css";
+
+export const metadata: Metadata = {
+  title: "ShootSix Studio – AI Product Photography",
+  description:
+    "Tạo 6 ảnh sản phẩm chuẩn thương mại điện tử bằng AI chỉ trong 1 phút",
+  manifest: "/manifest.json",
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: "black-translucent",
+    title: "ShootSix",
+  },
+  icons: {
+    apple: [
+      { url: "/icons/icon-192.png", sizes: "192x192" },
+      { url: "/icons/icon-512.png", sizes: "512x512" },
+    ],
+  },
+};
+
+export const viewport: Viewport = {
+  themeColor: "#f97316",
+  width: "device-width",
+  initialScale: 1,
+  viewportFit: "cover",
+};
+
+export default function RootLayout({
+  children,
+}: {
+  children: React.ReactNode;
+}) {
+  return (
+    <html lang="vi">
+      <head>
+        <meta name="apple-mobile-web-app-capable" content="yes" />
+        <meta
+          name="apple-mobile-web-app-status-bar-style"
+          content="black-translucent"
+        />
+        <link rel="apple-touch-icon" href="/icons/icon-192.png" />
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `
+              if ('serviceWorker' in navigator) {
+                window.addEventListener('load', function() {
+                  navigator.serviceWorker.register('/sw.js');
+                });
+              }
+            `,
+          }}
+        />
+      </head>
+      <body className="antialiased">{children}</body>
+    </html>
+  );
+}
